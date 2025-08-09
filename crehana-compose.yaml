@@ -1,0 +1,149 @@
+volumes:
+    prometheus_data:
+    grafana_data:
+    db_data:
+    cache:
+
+networks:
+  front-tier:
+  back-tier:
+
+services:
+  traefik:
+    image: traefik:3.5
+    hostname: traefik
+    ports:
+      - 9000:9000
+      - 9100:9100
+      - 9043:9043
+      - 8082:8082
+    labels:
+      - "traefik.enable=true"
+    networks:
+      - back-tier
+      - front-tier
+    volumes:
+      - "./infra/traefik/traefik.dev.yaml:/etc/traefik/traefik.yaml"
+      - "./infra/traefik/dynamic.yaml:/etc/traefik/dynamic.yaml"
+      - "/var/run/docker.sock:/var/run/docker.sock:ro"
+      - "./infra/traefik/certificates/acme.json:/acme.json"
+      - "./infra/traefik/certificates/config.yml:/config.yml:ro"
+
+  prometheus:
+    image: prom/prometheus
+    hostname: "prometheus"
+    volumes:
+      - "./infra/prometheus:/etc/prometheus/"
+      - prometheus_data:/prometheus
+    command:
+        - '--config.file=/etc/prometheus/prometheus.yml'
+        - '--storage.tsdb.path=/prometheus'
+        - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+        - '--web.console.templates=/usr/share/prometheus/consoles'
+        - '--web.external-url=/prom'
+    labels:
+      - "traefik.enable=true"
+    restart: always
+    expose:
+      - 15692
+      - 9090
+      - 8080
+      - 9100
+      - 8008
+    depends_on:
+        - cadvisor
+        - node-exporter
+
+    networks:
+      - back-tier
+
+  grafana:
+    image: grafana/grafana:latest
+    user: "472"
+    depends_on:
+      - prometheus
+    # ports:
+    #   - 3000:3000
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./infra/grafana/provisioning/:/etc/grafana/provisioning/
+      - ./infra/grafana/grafana.ini:/etc/grafana/grafana.ini
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=foobar
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_SERVER_ROOT_PATH=/grafana
+    networks:
+      - back-tier
+      - front-tier
+    labels:
+        - "traefik.enable=true"
+    restart: always
+
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor
+    hostname: "cadvisor"
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:rw
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+    expose:
+     - 8080
+    # ports:
+    #   - 8080:8080
+    networks:
+      - back-tier
+    restart: always
+
+  node-exporter:
+    image: quay.io/prometheus/node-exporter:latest
+    hostname: "node_exporter"
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    command:
+      - '--path.rootfs=/host'
+      - '--path.procfs=/host/proc'
+      - '--path.sysfs=/host/sys'
+      - --collector.filesystem.ignored-mount-points
+      - "^/(sys|proc|dev|host|etc|rootfs/var/lib/docker/containers|rootfs/var/lib/docker/overlay2|rootfs/run/docker/netns|rootfs/var/lib/docker/aufs)($$|/)"
+    expose:
+      - 9100
+    networks:
+      - back-tier
+    restart: always
+
+  db_postgresql:
+    image: postgres:14.1-alpine
+    hostname: pg
+    restart: always
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+    # expose:
+    #   - 5432
+    ports:
+      - 5432:5432
+    labels:
+      - "traefik.enable=true"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+      - ./data:/tmp/
+    networks:
+      - back-tier
+
+  crehana:
+    hostname: "crehana"
+    build:
+      dockerfile: Dockerfile
+    # command: /start
+    expose:
+      - 8000
+    labels:
+      - "traefik.enable=true"
+    depends_on:
+      - db_postgresql
+    networks:
+      - back-tier

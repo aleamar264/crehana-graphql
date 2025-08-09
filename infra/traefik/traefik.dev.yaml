@@ -1,0 +1,38 @@
+providers:
+  docker:
+    exposedByDefault: false
+  file:
+    filename: "/etc/traefik/dynamic.yaml"
+    watch:
+
+api:
+  insecure: true
+  dashboard: true
+
+log:
+  level: "DEBUG"
+
+entryPoints:
+  web:
+    address: ":9000"
+  
+  websecure:
+    address: ":9043"
+
+  traefik:
+    address: ":9100"
+  
+  metrics:
+    address: ":8082"
+
+metrics:
+  prometheus:
+    entryPoint: metrics
+    buckets:
+      - 0.1
+      - 0.3
+      - 1.2
+      - 5.0
+    addEntryPointsLabels: true
+    addRoutersLabels: true
+    addServicesLabels: true
