@@ -4,15 +4,12 @@ import strawberry
 from fastapi import Depends, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from graphql.error import GraphQLError
-from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 from strawberry.fastapi import BaseContext
 from strawberry.permission import BasePermission
 
-from utils.db.async_db_conf import get_db_session
-from utils.exceptions import ServiceError
+from utils.db.async_db_conf import depend_db_annotated, get_db_session
 from utils.fastapi.auth import get_current_user
-from utils.db.async_db_conf import depend_db_annotated
 
 security = HTTPBearer()
 
@@ -79,7 +76,6 @@ async def get_request_dependencie(request: Request) -> str:
 			message="User is not authenticated", extensions={"code": "UNAUTHORIZED"}
 		)
 	bearer_token: HTTPAuthorizationCredentials | None = await security(request)
-	print(bearer_token)
 	if bearer_token is None:
 		raise AuthenticationFailedGraphQL(
 			message="Bearer Token can't be empty", extensions={"code": "UNAUTHORIZED"}

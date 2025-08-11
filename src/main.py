@@ -6,7 +6,7 @@ from strawberry.fastapi import GraphQLRouter
 from strawberry.schema.config import StrawberryConfig
 
 from exception.handler_exception import CreateHandlerExceptions
-from routes.graphql_route import  Query, Mutation
+from routes.graphql_route import Mutation, Query
 from routes.user import router
 from schema.schemas import HealthCheck
 from utils.dependencies.graphql_fastapi import get_context

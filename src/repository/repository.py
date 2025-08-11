@@ -57,6 +57,7 @@ class Repository(GeneralCrudAsync[T]):
 		offset: int,
 		order_by: Literal["asc", "desc"],
 		filter: tuple[Any],
+		**kwargs
 	) -> tuple[Sequence[T], int]:
 		"""Function that retrieves and paginates the entities of a Model
 
@@ -66,6 +67,7 @@ class Repository(GeneralCrudAsync[T]):
 			offser (int): From which index return
 			order_by (Literal ["asc", "desc"]): How the data should be ordered.
 			filter (tuple[Any]): Filter the data to get.
+			kwargs: Can be any statement that we want to run
 
 		Returns:
 			tuple[Sequence[T], int]: Return a tuple with the Sequence o List of the data, and the count of the data selected.
@@ -82,7 +84,8 @@ class Repository(GeneralCrudAsync[T]):
 			# FastApi endpoint
 			@app.get("/")
 			async def get_pagination_fastapi(db: depend_db_annotated)-> Sequence[model]:
-				data, count = await get_entity_pagination(db=db, filter=(), limit=10, offset=0, order_by="asc")
+				data, count = await get_entity_pagination(db=db, filter=(), limit=10, offset=0, order_by="asc",
+					kwargs={"join": lambda s: s.join(model, model.id == model2.id)})
 				filter_str = "[["id", "=", "1"]]"
 				filter_: tuple[Operators] = get_filters(filter_str, model)
 				data, count = await get_entity_pagination(db, filter=filter_, limit=10, offset=0, order_by="asc")
@@ -97,7 +100,9 @@ class Repository(GeneralCrudAsync[T]):
 			raise ValueError("Order by should be 'asc' or 'desc' ")
 
 		stmt += lambda s: s.filter(*filter)  # type: ignore
-
+		if kwargs:
+			for v in kwargs.values():
+				stmt += v
 		count_query = lambda_stmt(
 			lambda: select(func.count()).select_from(stmt.subquery())  # type: ignore
 		)
@@ -341,6 +346,6 @@ class Repository(GeneralCrudAsync[T]):
 		if (await db.execute(stmt)).rowcount == 0:  # type: ignore
 			raise EntityDoesNotExistError(
 				message="No record was updated; it may not exist or values may be the same.",
-			)
+			) from None
 		await db.commit()
 		return await self.get_entity_by_id(entity_id, db)

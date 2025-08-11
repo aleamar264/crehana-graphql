@@ -3,21 +3,37 @@ from typing import Annotated, Any
 from uuid import UUID
 
 import strawberry
-from fastapi import Depends
+from sqlalchemy import select
 from strawberry.types import Info
 
 from models.models import TaskList, Tasks
-from schema.grapql_schemas import ListTasksUpdate, TasksUpdateGQL
+from schema.grapql_schemas import (
+	ListTasksUpdate,
+	ListTaskType,
+	TasksType,
+	TasksUpdateGQL,
+)
 from schema.tasks import ListTaskGQLResponse, TaskGQLResponse, TaskUpdates
-from .tasks import tasks_repository, tasks_list_repository
 
-from schema.grapql_schemas import TasksType, ListTaskType
+from .tasks import tasks_list_repository, tasks_repository
 
 
 def convert_enum(value: Any) -> Any:
 	if isinstance(value, Enum):
 		return value.value  # Convert Enum to its value
 	return value
+
+
+async def update_task_in_task_list(
+	tasks_ids: list[Annotated[str, UUID]], id: Annotated[str, UUID], info: Info
+) -> None:
+	async with info.context.db as session:
+		tasks = await session.execute(select(Tasks).where(Tasks.id.in_(tasks_ids)))
+		tasks = list(tasks.scalars())
+
+		for task in tasks:
+			task.task_list_id = UUID(id)
+		await session.commit()
 
 
 @strawberry.type
@@ -33,15 +49,12 @@ class UpdateMutation:
 		converted_data = {key: convert_enum(value) for key, value in _entity.items()}
 		result = await tasks_repository.update_entity(
 			db=info.context.db,
-			entity_schema=TaskUpdates(
-				**converted_data, **{"created_at": None}
-			).model_dump(exclude_none=True),
+			entity_schema=TaskUpdates(**converted_data).model_dump(exclude_none=True),
 			filter=(),  # type: ignore
 			entity_id=id,
 		)
 		__tasks = TasksType.from_pydantic(TaskGQLResponse.model_validate(result))
-		__tasks = strawberry.asdict(__tasks)  # type: ignore
-		return TasksType(**__tasks)  # type: ignore
+		return __tasks
 
 	@strawberry.mutation
 	async def list_tasks_update(
@@ -50,17 +63,27 @@ class UpdateMutation:
 		entity = strawberry.asdict(list_tasks)
 		_entity = {k: v for k, v in entity.items() if v is not None}
 		converted_data = {key: convert_enum(value) for key, value in _entity.items()}
+		if tasks := converted_data.get("tasks", None):
+			del converted_data["tasks"]
+			await update_task_in_task_list(tasks_ids=tasks, id=id, info=info)
 		session = info.context.db
-		result = await tasks_list_repository.update_entity(
+		result: TaskList = await tasks_list_repository.update_entity(
 			entity_id=id,
 			db=session,
 			entity_schema=converted_data,
 			filter=(),  # type: ignore
 		)
 
+		tasks = []
+
 		await session.refresh(result, attribute_names=["tasks"])
-		__tasks_list = ListTaskType.from_pydantic(
-			ListTaskGQLResponse.model_validate(result)
+		tasks = [TaskGQLResponse.model_validate(t) for t in result.tasks]
+		items_dict = result.__dict__
+		items_dict["tasks"] = tasks
+		new_items: ListTaskGQLResponse = ListTaskGQLResponse.model_construct(
+			**items_dict
 		)
-		__tasks_list = strawberry.asdict(__tasks_list)  # type: ignore
-		return ListTaskType(**__tasks_list)  # type: ignore
+		__tasks_list = ListTaskType.from_pydantic(
+			ListTaskGQLResponse.model_validate(new_items)
+		)
+		return __tasks_list

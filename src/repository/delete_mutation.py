@@ -19,10 +19,8 @@ class DeleteMutation:
 
 	@strawberry.mutation
 	async def delete_task_list(self, id: Annotated[str, UUID], info: Info) -> None:
-
 		await tasks_list_repository.delete_entity(
 			filter=(),  # type: ignore
 			entity_id=id,
 			db=info.context.db,
 		)
-

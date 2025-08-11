@@ -2,6 +2,7 @@ from datetime import datetime
 from json import loads
 from typing import Any
 
+import icecream
 from sqlalchemy.sql import operators
 from sqlalchemy.sql.operators import Operators
 
@@ -43,27 +44,32 @@ def get_filters(filters: str, model_db: Any) -> tuple[Any] | tuple[Operators]:
 		filter = "[["id", "=", 1]]"
 		get_filters(filters=filter, model_db: Employee)"""
 	filter_ = ()
-	if filters != "":
-		filter: list[Any] = loads(filters)
-		for _filter in filter:
-			column_name, operator, value = _filter
-			column = getattr(model_db, column_name, None)  # Get the column dynamically
-			if column is not None:
-				if isinstance(value, str) and operator in [
-					"=",
-					"!=",
-					">",
-					">=",
-					"<",
-					"<=",
-				]:
-					try:
-						value = datetime.strptime(value, "%Y-%m-%d")
-					except ValueError:
-						pass  # It wasn't a datetime, leave it as a string
-				filter_ += (
-					(operator_map[operator](column, value),)
-					if operator != "btw"
-					else (operator_map[operator](column, value[0], value[1]),)  # type: ignore
-				)
-	return filter_  # type: ignore
+	if not filters:
+		return filter_
+
+	filter_list: list[Any] = loads(filters)
+	for column_name, operator, value in filter_list:
+		# Handle dotted notation for relationships
+		if "." in column_name:
+			rel_name, sub_column = column_name.split(".", 1)
+			rel_model = getattr(model_db, rel_name).property.mapper.class_
+			column = getattr(rel_model, sub_column, None)
+		else:
+			column = getattr(model_db, column_name, None)
+
+		if column is None:
+			continue
+
+		# Handle datetime conversion
+		if isinstance(value, str) and operator in ["=", "!=", ">", ">=", "<", "<="]:
+			try:
+				value = datetime.strptime(value, "%Y-%m-%d")
+			except ValueError:
+				pass
+		# Build filter expression
+		if operator != "btw":
+			filter_ += (operator_map[operator](column, value),)
+		else:
+			filter_ += (operator_map[operator](column, value[0], value[1]),)
+		icecream.ic(filter_)
+	return filter_

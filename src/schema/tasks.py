@@ -51,14 +51,15 @@ class ListTasksResponse(ListTask):
 	id: UUID = Field(..., description="Id of the tasks")
 	model_config = ConfigDict(from_attributes=True)
 
+
 class GQL(BaseModel):
 	model_config = ConfigDict(from_attributes=True, use_enum_values=True)
 
-class TasksGQL(Tasks, GQL):
-	...
 
-class ListTaskGQL(ListTask, GQL):
-	...
+class TasksGQL(Tasks, GQL): ...
+
+
+class ListTaskGQL(ListTask, GQL): ...
 
 
 class TaskGQLResponse(TasksGQL):
@@ -78,4 +79,3 @@ class TaskUpdates(BaseModel):
 	task_list_id: UUID | None = None
 	created_at: datetime | None = None
 	updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
-	model_config = ConfigDict(from_attributes=True, use_enum_values=True)

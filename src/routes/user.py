@@ -3,7 +3,6 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordRequestForm
-import httpx
 
 from schema.schemas import Token, UserCreation, UserResponse, UserSave
 from services.users import authenticate_user, user_repository

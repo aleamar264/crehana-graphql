@@ -32,7 +32,9 @@ class Tasks(Base, MixInNameTable):
 	updated_at: Mapped[datetime] = mapped_column(
 		TIMESTAMP(timezone=True), nullable=True, default=None
 	)
-	task_list_id: Mapped[UUID] = mapped_column(ForeignKey("task_list.id"), nullable=True)
+	task_list_id: Mapped[UUID] = mapped_column(
+		ForeignKey("task_list.id"), nullable=True
+	)
 	task_list: Mapped["TaskList"] = relationship(back_populates="tasks")
 	title: Mapped[str] = mapped_column(VARCHAR(25), nullable=False)
 	description: Mapped[str] = mapped_column(VARCHAR(255), nullable=True)
@@ -49,7 +51,9 @@ class TaskList(Base, MixInNameTable):
 	updated_at: Mapped[datetime] = mapped_column(
 		TIMESTAMP(timezone=True), nullable=True, default=None
 	)
-	tasks: Mapped[list["Tasks"]] = relationship(back_populates="task_list")
+	tasks: Mapped[list["Tasks"]] = relationship(
+		back_populates="task_list", cascade="all, delete-orphan"
+	)
 
 
 class Users(Base, MixInNameTable):

@@ -2,29 +2,24 @@ from dataclasses import asdict
 from enum import Enum
 from typing import Any
 
-import icecream
 import strawberry
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import InstrumentedAttribute
 from strawberry.types import Info
 
-from models.models import TaskList, Tasks
+from schema.tasks import ListTask as ListTaskSchema
 from schema.grapql_schemas import (
 	ListTaskInput,
 	ListTaskType,
 	TaskGQLResponse,
 	TasksInput,
 	TasksType,
-	Tasks as TaskSchema,
-	ListTask as ListTaskSchema
 )
+from schema.grapql_schemas import Tasks as TaskSchema
 from schema.tasks import ListTaskGQLResponse
 from utils.db.crud.entity import GeneralCrudAsync
-from utils.db.dynamic_filter import get_filters
 from utils.exceptions import (
-	AuthenticationFailed,
 	EntityAlreadyExistsError,
-	EntityDoesNotExistError,
 )
 
 from .tasks import tasks_list_repository, tasks_repository
@@ -59,11 +54,11 @@ def convert_enum(value: Any) -> Any:
 		return value.value  # Convert Enum to its value
 	return value
 
+
 @strawberry.type
 class CreateMutation:
 	@strawberry.mutation
 	async def tasks(self, tasks: TasksInput, info: Info) -> TasksType:
-
 		entity = strawberry.asdict(tasks)
 		converted_data = {key: convert_enum(value) for key, value in entity.items()}
 		entity_schema = TaskSchema(**converted_data)
@@ -87,6 +82,8 @@ class CreateMutation:
 			entity_schema=entity_schema,
 		)
 		await session.refresh(result, attribute_names=["tasks"])
-		__tasks_list = ListTaskType.from_pydantic(ListTaskGQLResponse.model_validate(result))
+		__tasks_list = ListTaskType.from_pydantic(
+			ListTaskGQLResponse.model_validate(result)
+		)
 		__tasks_list = asdict(__tasks_list)  # type: ignore
 		return ListTaskType(**__tasks_list)  # type: ignore

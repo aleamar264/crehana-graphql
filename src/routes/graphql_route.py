@@ -4,14 +4,14 @@ from strawberry.permission import PermissionExtension
 from repository.create_mutation import CreateMutation
 from repository.delete_mutation import DeleteMutation
 from repository.query import PaginationWindow, Queries
-
 from repository.update_mutation import UpdateMutation
 from schema.grapql_schemas import ListTaskType, TasksType
 from utils.dependencies.graphql_fastapi import IsAuthenticated
 
+
 @strawberry.type
 class Mutation:
-# 	"""Class that contain all the mutations (Create, Delete, Update)"""
+	# 	"""Class that contain all the mutations (Create, Delete, Update)"""
 
 	@strawberry.field(extensions=[PermissionExtension(permissions=[IsAuthenticated()])])
 	def create_mutations(self) -> CreateMutation:

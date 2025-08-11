@@ -4,13 +4,7 @@ from uuid import UUID
 
 import strawberry
 
-from schema.tasks import (
-	ListTaskGQL,
-	TaskGQLResponse,
-	Tasks,
-	TaskUpdates,
-	ListTask
-)
+from schema.tasks import ListTaskGQL, TaskGQLResponse, Tasks, TaskUpdates
 
 
 @strawberry.enum
@@ -55,6 +49,7 @@ class ListTaskType:
 
 # =================================== Input ===========================================
 
+
 @strawberry.experimental.pydantic.input(model=Tasks)
 class TasksInput:
 	status: StatusGQLEnum = strawberry.field(default=StatusGQLEnum.NEW)
@@ -79,9 +74,6 @@ class ListTaskInput:
 	updated_at: datetime | None = None
 
 
-
-
-
 # ======================= Update ==========================
 
 
@@ -92,10 +84,11 @@ class DateTime:
 
 @strawberry.input
 class ListTasksUpdate(DateTime):
-	tasks: list[UUID] = strawberry.field(default_factory=[])
+	tasks: list[UUID] | None = None
 	name: str | None = None
 
-@strawberry.input
+
+@strawberry.experimental.pydantic.input(model=TaskUpdates)
 class TasksUpdateGQL:
 	status: StatusGQLEnum = strawberry.field(default=StatusGQLEnum.NEW)
 	priority: PriorityGQLEnum = strawberry.field(default=PriorityGQLEnum.LOW)
@@ -103,6 +96,7 @@ class TasksUpdateGQL:
 	title: str | None = None
 	description: str | None = None
 	task_list_id: UUID | None = None
-	updated_at:  datetime | None = strawberry.field(
+	updated_at: datetime | None = strawberry.field(
 		default_factory=lambda: datetime.now(UTC)
 	)
+	created_at: datetime | None = None
