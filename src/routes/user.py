@@ -7,7 +7,7 @@ from fastapi.security import OAuth2PasswordRequestForm
 from schema.schemas import Token, UserCreation, UserResponse, UserSave
 from services.users import authenticate_user, user_repository
 from utils.db.async_db_conf import depend_db_annotated
-from utils.exceptions import GeneralError, ServiceError
+from utils.exceptions import GeneralError
 from utils.fastapi.auth import (
 	create_access_token,
 	get_current_active_user,
@@ -32,18 +32,15 @@ ACCESS_TOKEN_EXPIRE_MINUTES = 30
 async def create_user(
 	body: UserCreation, db: depend_db_annotated, request: Request
 ) -> UserResponse:
-	try:
-		new_user = UserSave(
-			**body.model_dump(exclude={"password", "password2"}),
-			password_hash=get_password_hash(body.password),
-		)
-		user = await user_repository.create_entity(entity_schema=new_user, db=db)
-		if not user:
-			raise GeneralError(message="Could not create user")
+	new_user = UserSave(
+		**body.model_dump(exclude={"password", "password2"}),
+		password_hash=get_password_hash(body.password),
+	)
+	user = await user_repository.create_entity(entity_schema=new_user, db=db)
+	if not user:
+		raise GeneralError(message="Could not create user")
 
-		return UserResponse(**user.__dict__)
-	except Exception as e:
-		raise ServiceError(message=f"Database error: {str(e)}")
+	return UserResponse(**user.__dict__)
 
 
 @router.post("/token")

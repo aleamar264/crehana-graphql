@@ -51,6 +51,7 @@ async def get_current_user(
 		username = payload.get("sub")
 		if username is None:
 			raise credentials_exception
+		print(username)
 		token_data = TokenData(username=username)
 	except jwt.InvalidTokenError:
 		raise credentials_exception from None

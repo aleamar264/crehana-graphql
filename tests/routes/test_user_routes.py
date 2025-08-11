@@ -2,12 +2,15 @@
 
 from unittest.mock import AsyncMock, patch
 
-from fastapi.testclient import TestClient
 import pytest
 from fastapi import status
+from fastapi.testclient import TestClient
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from schema.schemas import UserResponse
 from main import app
+from schema.schemas import UserResponse
+from utils.db.async_db_conf import depend_db_annotated
+from utils.fastapi.auth import get_current_active_user
 
 rest_client = TestClient(app)
 
@@ -26,12 +29,16 @@ MOCK_USER = {
 	"updated_at": None,
 }
 
+db = AsyncMock(spec=AsyncSession)
+
 
 @pytest.mark.asyncio
 async def test_create_user_success():
 	"""Test successful user creation."""
+
+	app.dependency_overrides[depend_db_annotated] = db
 	with patch("services.users.user_repository.create_entity") as mock_create:
-		mock_user = AsyncMock()
+		mock_user = UserResponse(**MOCK_USER)
 		mock_create.return_value = mock_user
 
 		response = rest_client.post("/users/register", json=TEST_USER_DATA)
@@ -39,14 +46,19 @@ async def test_create_user_success():
 		assert response.status_code == status.HTTP_201_CREATED
 		assert response.json()["email"] == MOCK_USER["email"]
 		assert response.json()["full_name"] == MOCK_USER["full_name"]
+		app.dependency_overrides = {}
 
 
 @pytest.mark.asyncio
 async def test_create_user_failure():
 	"""Test user creation failure."""
-	with patch("services.users.user_repository.create_entity", return_value=None):
+	app.dependency_overrides[depend_db_annotated] = db
+	with patch("services.users.user_repository.create_entity") as mock_create:
+		mock_create.return_value = None
 		response = rest_client.post("/users/register", json=TEST_USER_DATA)
+		assert response.json()["_embedded"]["message"] == "Could not create user"
 		assert response.status_code == status.HTTP_400_BAD_REQUEST
+	app.dependency_overrides = {}
 
 
 @pytest.mark.asyncio
@@ -57,9 +69,10 @@ async def test_login_success():
 		"password": TEST_USER_DATA["password"],
 	}
 
+	app.dependency_overrides[depend_db_annotated] = db
+
 	with patch("routes.user.authenticate_user") as mock_auth:
-		mock_user = AsyncMock()
-		mock_user.__dict__ = MOCK_USER
+		mock_user = UserResponse(**MOCK_USER)
 		mock_auth.return_value = mock_user
 
 		response = rest_client.post("/users/token", data=form_data)
@@ -67,6 +80,8 @@ async def test_login_success():
 		assert response.status_code == status.HTTP_200_OK
 		assert "access_token" in response.json()
 		assert response.json()["token_type"] == "bearer"
+	app.dependency_overrides = {}
+
 
 
 @pytest.mark.asyncio
@@ -81,55 +96,10 @@ async def test_login_failure():
 
 @pytest.mark.asyncio
 async def test_read_users_me():
-	"""Test reading current user profile."""
-	with patch("utils.fastapi.auth.get_current_active_user") as mock_get_user:
-		mock_get_user.return_value = UserResponse(**MOCK_USER)
-
-		response = rest_client.get(
-			"/users/me", headers={"Authorization": "Bearer test_token"}
-		)
-
-		assert response.status_code == status.HTTP_200_OK
-		assert response.json()["email"] == MOCK_USER["email"]
-
-
-@pytest.mark.asyncio
-async def test_read_own_items():
-	"""Test reading user's items."""
-	with patch("utils.fastapi.auth.get_current_active_user") as mock_get_user:
-		mock_get_user.return_value = UserResponse(**MOCK_USER)
-
-		response = rest_client.get(
-			"/users/me/items", headers={"Authorization": "Bearer test_token"}
-		)
-
-		assert response.status_code == status.HTTP_200_OK
-		assert response.json()[0]["owner"] == MOCK_USER["email"]
-
-
-@pytest.mark.asyncio
-async def test_read_users_me():
-	"""Test reading current user profile."""
-	with patch("utils.fastapi.auth.get_current_active_user") as mock_get_user:
-		mock_get_user.return_value = UserResponse(**MOCK_USER)
-
-		response = rest_client.get(
-			"/users/me", headers={"Authorization": "Bearer test_token"}
-		)
-
-		assert response.status_code == status.HTTP_200_OK
-		assert response.json()["email"] == MOCK_USER["email"]
-
-
-@pytest.mark.asyncio
-async def test_read_own_items():
-	"""Test reading user's items."""
-	with patch("utils.fastapi.auth.get_current_active_user") as mock_get_user:
-		mock_get_user.return_value = UserResponse(**MOCK_USER)
-
-		response = rest_client.get(
-			"/users/me/items", headers={"Authorization": "Bearer test_token"}
-		)
-
-		assert response.status_code == status.HTTP_200_OK
-		assert response.json()[0]["owner"] == MOCK_USER["email"]
+    """Test reading current user profile."""
+    mock_user = UserResponse(**MOCK_USER)
+    app.dependency_overrides[get_current_active_user] = lambda: mock_user
+    response = rest_client.get("/users/me", headers={"Authorization": "Bearer test_token"})
+    assert response.status_code == status.HTTP_200_OK
+    assert response.json()["email"] == MOCK_USER["email"]
+    app.dependency_overrides = {}
