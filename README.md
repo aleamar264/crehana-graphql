@@ -158,3 +158,23 @@ You can use the interfaz to log in or use directly the `/token` endpoint to gene
 With this token created you can use the GraphQL server http://localhost:9000/api/v1/graphql to Query and make some Mutations (Create, Delete, Update)
 
 If you not add the Authorization Token you will receive an error.
+
+### How to setup the env
+
+For this project we will use UV from astral.
+
+We can install in several ways [uv](https://docs.astral.sh/uv/getting-started/installation/) like using `pipx`, `curl` or `manual`, the recomendaded way to install is by curl.
+
+When UV is installed, you can create the virtual envioronment using `uv sync`, this will install all the dependencies for the production and development.
+
+In the `pyproject.toml` exist all the configurations, for Ruff, coverage, pytest, alembic and so on, so we don't need several files for each configuration.
+
+### How to create the tables for db
+To create the tables for the database, you need to had installed uv with the package of alembic.
+From the route, where the `alembic.ini` exist alongside the `pyproject.toml`, you only need to run `uv run alembic upgrade head` to get the last version of the tables.
+
+>[!WARNING]
+> You need the docker compose running to not get any error.
+
+### Run test
+To run the test, you only need to run `uv run pytest`, this will take the configuration from `pyproject.toml`.
