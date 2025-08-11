@@ -32,6 +32,19 @@ ACCESS_TOKEN_EXPIRE_MINUTES = 30
 async def create_user(
 	body: UserCreation, db: depend_db_annotated, request: Request
 ) -> UserResponse:
+	"""Register a new user in the system.
+
+	Args:
+		body (UserCreation): The user creation data including full_name, email, and password.
+		db (AsyncSession): The database session dependency.
+		request (Request): The FastAPI request object.
+
+	Returns:
+		UserResponse: The created user data without sensitive information.
+
+	Raises:
+		GeneralError: If the user creation fails.
+	"""
 	new_user = UserSave(
 		**body.model_dump(exclude={"password", "password2"}),
 		password_hash=get_password_hash(body.password),
@@ -47,6 +60,18 @@ async def create_user(
 async def login_for_access_token(
 	form_data: Annotated[OAuth2PasswordRequestForm, Depends()], db: depend_db_annotated
 ) -> Token:
+	"""Authenticate a user and generate an access token.
+
+	Args:
+		form_data (OAuth2PasswordRequestForm): The OAuth2 form data containing username and password.
+		db (AsyncSession): The database session dependency.
+
+	Returns:
+		Token: An object containing the access token and token type.
+
+	Raises:
+		HTTPException: If authentication fails with 401 status code.
+	"""
 	user = await authenticate_user(
 		db=db, username=form_data.username, password=form_data.password
 	)
@@ -66,6 +91,14 @@ async def login_for_access_token(
 @router.get("/me", response_model=UserResponse)
 async def read_users_me(
 	current_user: Annotated[UserResponse, Depends(get_current_active_user)],
-):
+) -> UserResponse:
+	"""Get the current authenticated user's profile.
+
+	Args:
+		current_user (UserResponse): The current authenticated user, injected by the dependency.
+
+	Returns:
+		UserResponse: The current user's profile data.
+	"""
 	return current_user
 

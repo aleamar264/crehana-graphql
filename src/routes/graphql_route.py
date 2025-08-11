@@ -10,8 +10,19 @@ from utils.dependencies.graphql_fastapi import IsAuthenticated
 
 
 @strawberry.type
+
 class Mutation:
 	# 	"""Class that contain all the mutations (Create, Delete, Update)"""
+	"""
+	Mutation class containing all GraphQL mutation operations (Create, Delete, Update).
+
+	Each mutation field is protected by authentication permissions, ensuring only authenticated users can perform these operations.
+
+	Methods:
+		create_mutations: Returns the CreateMutation object for handling create operations.
+		delete_mutations: Returns the DeleteMutation object for handling delete operations.
+		upadate_mutation: Returns the UpdateMutation object for handling update operations.
+	"""
 
 	@strawberry.field(extensions=[PermissionExtension(permissions=[IsAuthenticated()])])
 	def create_mutations(self) -> CreateMutation:
@@ -28,8 +39,13 @@ class Mutation:
 
 @strawberry.type
 class Query:
-	"""All the gets"""
-
+	"""
+	GraphQL Query class defining available queries for tasks.
+	Attributes:
+		tasks (PaginationWindow[TasksType]): Returns a paginated list of tasks. Requires authentication.
+		task_list (PaginationWindow[ListTaskType]): Returns a paginated list of task summaries. Requires authentication.
+	Each field uses a resolver from the Queries class and enforces authentication via permission_classes.
+	"""
 	tasks: PaginationWindow[TasksType] = strawberry.field(
 		resolver=Queries.all_tasks, permission_classes=[IsAuthenticated]
 	)

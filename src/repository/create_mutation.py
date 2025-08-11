@@ -2,14 +2,12 @@ from dataclasses import asdict
 from enum import Enum
 from typing import Any
 
-import icecream
 import strawberry
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import InstrumentedAttribute
 from strawberry.types import Info
 
 from common.send_email import send_email_for_task
-from schema.tasks import ListTask as ListTaskSchema
 from schema.grapql_schemas import (
 	ListTaskInput,
 	ListTaskType,
@@ -18,13 +16,13 @@ from schema.grapql_schemas import (
 	TasksType,
 )
 from schema.grapql_schemas import Tasks as TaskSchema
+from schema.tasks import ListTask as ListTaskSchema
 from schema.tasks import ListTaskGQLResponse
+from services.users import user_repository
 from utils.db.crud.entity import GeneralCrudAsync
 from utils.exceptions import (
 	EntityAlreadyExistsError,
 )
-
-from services.users import user_repository
 
 from .tasks import tasks_list_repository, tasks_repository
 
@@ -63,6 +61,23 @@ def convert_enum(value: Any) -> Any:
 class CreateMutation:
 	@strawberry.mutation
 	async def tasks(self, tasks: TasksInput, info: Info) -> TasksType:
+		"""
+		Asynchronously creates a new task entity in the database and sends an email notification if the user associated with the task has changed.
+
+		Args:
+			tasks (TasksInput): The input data for the task to be created.
+			info (Info): The GraphQL resolver info containing context and database session.
+
+		Returns:
+			TasksType: The created task entity as a GraphQL type.
+
+		Side Effects:
+			- Sends an email notification to the user if the user associated with the task is different from the one in the result.
+
+		Raises:
+			ValidationError: If the input data does not conform to the TaskSchema.
+			Exception: Propagates exceptions from the repository or email sending functions.
+		"""
 		entity = strawberry.asdict(tasks)
 		converted_data = {key: convert_enum(value) for key, value in entity.items()}
 		entity_schema = TaskSchema(**converted_data)
@@ -80,6 +95,20 @@ class CreateMutation:
 
 	@strawberry.mutation
 	async def tasks_lists(self, tasks_list: ListTaskInput, info: Info) -> ListTaskType:
+		"""
+		Asynchronously creates a new tasks list entity in the database and returns the corresponding GraphQL type.
+
+		Args:
+			tasks_list (ListTaskInput): The input data for the tasks list to be created.
+			info (Info): GraphQL resolver info containing context, including the database session.
+
+		Returns:
+			ListTaskType: The created tasks list represented as a GraphQL type.
+
+		Raises:
+			ValidationError: If the input data does not conform to the expected schema.
+			Exception: For any database or repository errors during entity creation or refresh.
+		"""
 		entity = strawberry.asdict(tasks_list)
 		converted_data = {key: convert_enum(value) for key, value in entity.items()}
 		entity_schema = ListTaskSchema(**converted_data)
