@@ -66,9 +66,9 @@ The repository layer implements CRUD operations with the following features:
 - Pydantic models for validation
 - Comprehensive error handling
 
-## Getting Started
-
-[Installation and setup instructions to be added]
+## Send email notifications (Dummy)
+If when is created or updated one task and the field user is not None, this will trigger a notification by email,
+in this case, this is suppressed to not generate any warning o crash the program.
 
 ## Dynamic Filtering System
 

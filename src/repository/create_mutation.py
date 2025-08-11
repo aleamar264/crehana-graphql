@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import InstrumentedAttribute
 from strawberry.types import Info
 
+from common.send_email import send_email_for_task
 from schema.tasks import ListTask as ListTaskSchema
 from schema.grapql_schemas import (
 	ListTaskInput,
@@ -21,6 +22,8 @@ from utils.db.crud.entity import GeneralCrudAsync
 from utils.exceptions import (
 	EntityAlreadyExistsError,
 )
+
+from services.users import user_repository
 
 from .tasks import tasks_list_repository, tasks_repository
 
@@ -67,6 +70,9 @@ class CreateMutation:
 			db=session,
 			entity_schema=entity_schema,
 		)
+		if converted_data.get("user") is not None:
+			user = await user_repository.get_entity_by_id(db=info.context.db, entity_id=converted_data["user"])
+			await send_email_for_task(user=str(user.email), task=result)
 		__tasks = TasksType.from_pydantic(TaskGQLResponse.model_validate(result))
 		__tasks = asdict(__tasks)  # type: ignore
 		return TasksType(**__tasks)  # type: ignore
