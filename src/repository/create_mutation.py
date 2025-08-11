@@ -2,6 +2,7 @@ from dataclasses import asdict
 from enum import Enum
 from typing import Any
 
+import icecream
 import strawberry
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import InstrumentedAttribute
@@ -70,8 +71,8 @@ class CreateMutation:
 			db=session,
 			entity_schema=entity_schema,
 		)
-		if converted_data.get("user") is not None:
-			user = await user_repository.get_entity_by_id(db=info.context.db, entity_id=converted_data["user"])
+		if (_user:= converted_data.get("user")) is not None and _user != str(result.user):
+			user = await user_repository.get_entity_by_id(db=info.context.db, entity_id=str(converted_data["user"]))
 			await send_email_for_task(user=str(user.email), task=result)
 		__tasks = TasksType.from_pydantic(TaskGQLResponse.model_validate(result))
 		__tasks = asdict(__tasks)  # type: ignore

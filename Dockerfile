@@ -31,6 +31,8 @@ RUN apt-get update && apt-get upgrade -y && apt-get clean
 COPY --from=builder --chown=app:app /app/.venv /app/.venv
 COPY src .
 COPY .env .env
+COPY other_env.env other_env.env
+
 # ENV OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=http://jaeger-collector.monitoring.svc.cluster.local:4318/v1/traces
 
 # Run the application

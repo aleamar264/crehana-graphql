@@ -1,17 +1,17 @@
 from models.models import Users as UserModels
 from repository.repository import Repository
-from schema.schemas import UserSave
+from schema.schemas import UserResponse, UserSave
 from utils.db.async_db_conf import depend_db_annotated
 
 user_repository = Repository(model=UserModels)
 
 
-async def get_user_by_email(db: depend_db_annotated, email: str | int) -> UserSave:
+async def get_user_by_email(db: depend_db_annotated, email: str | int) -> UserResponse:
 	user = await user_repository.get_entity_by_args(
 		entity_schema_value=email, column=UserModels.email, db=db
 	)
 	user_dict = user.__dict__
-	return UserSave(**user_dict)
+	return UserResponse(**user_dict)
 
 
 async def authenticate_user(db: depend_db_annotated, username: str, password: str):
