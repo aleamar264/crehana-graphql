@@ -100,6 +100,9 @@ filter = '[["status", "=", "active"], ["created_at", ">=", "2025-01-01"]]'
 
 # Between filter
 filter = '[["age", "btw", [20, 30]]]'
+
+# Relationship filter
+filter = '[["tasks.status", "=", "ACTIVE"]]'
 ```
 
 ### GraphQL Integration
@@ -107,7 +110,7 @@ The filtering system seamlessly integrates with GraphQL queries:
 
 ```graphql
 query {
-  tasks(filter: "[["status", "=", "IN_PROGRESS"], ["priority", "=", "HIGH"]]") {
+  tasks(filter: "[["tasks.status", "=", "IN_PROGRESS"], ["tasks.priority", "=", "HIGH"]]") {
     id
     title
     status
