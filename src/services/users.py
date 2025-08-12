@@ -1,17 +1,20 @@
 from models.models import Users as UserModels
 from repository.repository import Repository
-from schema.schemas import UserResponse, UserSave
+from schema.schemas import UserResponse, UserSave, UserWithPassword
 from utils.db.async_db_conf import depend_db_annotated
+from utils.exceptions import EntityDoesNotExistError
 
 user_repository = Repository(model=UserModels)
 
 
-async def get_user_by_email(db: depend_db_annotated, email: str | int) -> UserResponse:
-	user = await user_repository.get_entity_by_args(
+async def get_user_by_email(db: depend_db_annotated, email: str | int) -> UserWithPassword:
+	user: UserModels | None = await user_repository.get_entity_by_args(
 		entity_schema_value=email, column=UserModels.email, db=db
 	)
+	if user is None:
+		raise EntityDoesNotExistError(f"The user with email {email} not exist")
 	user_dict = user.__dict__
-	return UserResponse(**user_dict)
+	return UserWithPassword(**user_dict)
 
 
 async def authenticate_user(db: depend_db_annotated, username: str, password: str):

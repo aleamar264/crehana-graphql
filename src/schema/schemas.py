@@ -97,6 +97,9 @@ class UserResponse(UserBase, UserAttributes):
 	model_config = ConfigDict(from_attributes=True)
 
 
+class UserWithPassword(UserResponse):
+	password_hash: str = Field(...)
+
 class Token(BaseModel):
 	access_token: str
 	token_type: str
