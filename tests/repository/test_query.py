@@ -1,12 +1,9 @@
 from datetime import UTC, datetime
-from typing import Annotated
 from unittest.mock import AsyncMock, MagicMock, Mock, patch
-from uuid import UUID
 
 import pytest
 import strawberry
 from mock_tasks import TASK_DATA_MOCK
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from models.models import TaskList, Tasks
 from repository.query import (
@@ -16,10 +13,8 @@ from repository.query import (
 	get_pagination_windows,
 	get_pagination_windows_task_list,
 )
-from repository.tasks import tasks_repository
-from routes.graphql_route import Query
 from schema.grapql_schemas import ListTaskType, TasksType
-from schema.tasks import Priority, Status, TaskGQLResponse
+from schema.tasks import TaskGQLResponse
 
 
 @pytest.mark.asyncio

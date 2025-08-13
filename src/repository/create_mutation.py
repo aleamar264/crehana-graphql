@@ -1,3 +1,4 @@
+import asyncio
 from dataclasses import asdict
 from enum import Enum
 from typing import Any
@@ -16,7 +17,7 @@ from schema.grapql_schemas import (
 	TasksType,
 )
 from schema.grapql_schemas import Tasks as TaskSchema
-from schema.tasks import ListTask as ListTaskSchema
+from schema.tasks import ListTask as ListTaskSchema, ListTaskGQLCreation, TasksResponse
 from schema.tasks import ListTaskGQLResponse
 from services.users import user_repository
 from utils.db.crud.entity import GeneralCrudAsync
@@ -48,7 +49,7 @@ async def get_other_entity(
 		and code :variable:`Entity already exist`.
 	"""
 	if await crud.get_entity_by_args(column, schema_value, db, filter=()) is not None:  # type: ignore
-		raise EntityAlreadyExistsError(message, code="ENTITY_IN_DB")
+		raise EntityAlreadyExistsError(message)
 
 
 def convert_enum(value: Any) -> Any:
@@ -57,73 +58,111 @@ def convert_enum(value: Any) -> Any:
 	return value
 
 
+async def tasks_lists_mutation(tasks_list: ListTaskInput, info: Info) -> ListTaskType:
+	"""
+	Asynchronously creates a new tasks list entity in the database and returns the corresponding GraphQL type.
+
+	Args:
+		tasks_list (ListTaskInput): The input data for the tasks list to be created.
+		info (Info): GraphQL resolver info containing context, including the database session.
+
+	Returns:
+		ListTaskType: The created tasks list represented as a GraphQL type.
+
+	Raises:
+		ValidationError: If the input data does not conform to the expected schema.
+		Exception: For any database or repository errors during entity creation or refresh.
+	"""
+	# session = info.context.db
+	# entity = strawberry.asdict(tasks_list)
+	# converted_data = {key: convert_enum(value) for key, value in entity.items()}
+	# if converted_data["tasks"]:
+	# 	tasks = []
+	# 	for task in converted_data["tasks"]:
+	# 		tasks_ = await tasks_repository.get_entity_by_id(
+	# 			db=session, filter=(), entity_id=task
+	# 		)
+	# 		tasks.append(TasksResponse(**tasks_.__dict__))
+	# 	converted_data["tasks"] = tasks
+	# entity_schema = ListTaskGQLCreation(**converted_data)
+	# result = await tasks_list_repository.create_entity(
+	# 	db=session,
+	# 	entity_schema=entity_schema,
+	# )
+	# await session.refresh(result, attribute_names=["tasks"])
+	# tasks = [TaskGQLResponse.model_validate(t) for t in result.tasks]
+	# items_dict = result.__dict__
+	# items_dict["tasks"] = tasks
+
+	# return ListTaskType.from_pydantic(
+	# 	ListTaskGQLResponse.model_construct(**items_dict)
+	# )
+	session = info.context.db
+	entity = strawberry.asdict(tasks_list)
+	converted_data = {key: convert_enum(value) for key, value in entity.items()}
+	if converted_data["tasks"]:
+		tasks = await asyncio.gather(
+			*(
+				tasks_repository.get_entity_by_id(db=session, filter=(), entity_id=task)
+				for task in converted_data["tasks"]
+			)
+		)
+		converted_data["tasks"] = [TasksResponse(**task_.__dict__) for task_ in tasks]
+	entity_schema = ListTaskGQLCreation(**converted_data)
+	result = await tasks_list_repository.create_entity(
+		db=session,
+		entity_schema=entity_schema,
+	)
+	await session.refresh(result, attribute_names=["tasks"])
+	tasks = [TaskGQLResponse.model_validate(t) for t in result.tasks]
+	items_dict = result.__dict__
+	items_dict["tasks"] = tasks
+
+	return ListTaskType.from_pydantic(ListTaskGQLResponse.model_construct(**items_dict))
+
+
+async def tasks_mutation(tasks: TasksInput, info: Info) -> TasksType:
+	"""
+	Asynchronously creates a new task entity in the database and sends an email notification if the user associated with the task has changed.
+
+	Args:
+		tasks (TasksInput): The input data for the task to be created.
+		info (Info): The GraphQL resolver info containing context and database session.
+
+	Returns:
+		TasksType: The created task entity as a GraphQL type.
+
+	Side Effects:
+		- Sends an email notification to the user if the user associated with the task is different from the one in the result.
+
+	Raises:
+		ValidationError: If the input data does not conform to the TaskSchema.
+		Exception: Propagates exceptions from the repository or email sending functions.
+	"""
+	entity = strawberry.asdict(tasks)
+	converted_data = {key: convert_enum(value) for key, value in entity.items()}
+	entity_schema = TaskSchema(**converted_data)
+	session = info.context.db
+	result = await tasks_repository.create_entity(
+		db=session,
+		entity_schema=entity_schema,
+	)
+	if (_user := converted_data.get("user")) is not None and _user != str(result.user):
+		user = await user_repository.get_entity_by_id(
+			db=info.context.db, entity_id=str(converted_data["user"])
+		)
+		await send_email_for_task(user=str(user.email), task=result)
+	return TasksType.from_pydantic(TaskGQLResponse.model_validate(result))
+
+
 @strawberry.type
 class CreateMutation:
 	@strawberry.mutation
-	async def tasks(self, tasks: TasksInput, info: Info) -> TasksType:
-		"""
-		Asynchronously creates a new task entity in the database and sends an email notification if the user associated with the task has changed.
-
-		Args:
-			tasks (TasksInput): The input data for the task to be created.
-			info (Info): The GraphQL resolver info containing context and database session.
-
-		Returns:
-			TasksType: The created task entity as a GraphQL type.
-
-		Side Effects:
-			- Sends an email notification to the user if the user associated with the task is different from the one in the result.
-
-		Raises:
-			ValidationError: If the input data does not conform to the TaskSchema.
-			Exception: Propagates exceptions from the repository or email sending functions.
-		"""
-		entity = strawberry.asdict(tasks)
-		converted_data = {key: convert_enum(value) for key, value in entity.items()}
-		entity_schema = TaskSchema(**converted_data)
-		session = info.context.db
-		result = await tasks_repository.create_entity(
-			db=session,
-			entity_schema=entity_schema,
-		)
-		if (_user := converted_data.get("user")) is not None and _user != str(
-			result.user
-		):
-			user = await user_repository.get_entity_by_id(
-				db=info.context.db, entity_id=str(converted_data["user"])
-			)
-			await send_email_for_task(user=str(user.email), task=result)
-		__tasks = TasksType.from_pydantic(TaskGQLResponse.model_validate(result))
-		__tasks = asdict(__tasks)  # type: ignore
-		return TasksType(**__tasks)  # type: ignore
+	async def create_tasks(self, tasks: TasksInput, info: Info) -> TasksType:
+		return await tasks_mutation(tasks=tasks, info=info)
 
 	@strawberry.mutation
-	async def tasks_lists(self, tasks_list: ListTaskInput, info: Info) -> ListTaskType:
-		"""
-		Asynchronously creates a new tasks list entity in the database and returns the corresponding GraphQL type.
-
-		Args:
-			tasks_list (ListTaskInput): The input data for the tasks list to be created.
-			info (Info): GraphQL resolver info containing context, including the database session.
-
-		Returns:
-			ListTaskType: The created tasks list represented as a GraphQL type.
-
-		Raises:
-			ValidationError: If the input data does not conform to the expected schema.
-			Exception: For any database or repository errors during entity creation or refresh.
-		"""
-		entity = strawberry.asdict(tasks_list)
-		converted_data = {key: convert_enum(value) for key, value in entity.items()}
-		entity_schema = ListTaskSchema(**converted_data)
-		session = info.context.db
-		result = await tasks_list_repository.create_entity(
-			db=session,
-			entity_schema=entity_schema,
-		)
-		await session.refresh(result, attribute_names=["tasks"])
-		__tasks_list = ListTaskType.from_pydantic(
-			ListTaskGQLResponse.model_validate(result)
-		)
-		__tasks_list = asdict(__tasks_list)  # type: ignore
-		return ListTaskType(**__tasks_list)  # type: ignore
+	async def create_tasks_lists(
+		self, tasks_list: ListTaskInput, info: Info
+	) -> ListTaskType:
+		return await tasks_lists_mutation(tasks_list=tasks_list, info=info)

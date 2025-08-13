@@ -2,27 +2,13 @@ from unittest.mock import AsyncMock, patch
 from uuid import UUID
 
 import pytest
+from mock_user import MOCK_USER, TEST_USER_DATA
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from models.models import Users as UserModels
 from schema.schemas import UserWithPassword
 from services.users import authenticate_user, get_user_by_email
 from utils.exceptions import EntityDoesNotExistError
-
-TEST_USER_DATA = {
-	"full_name": "Test User",
-	"email": "test@example.com",
-	"password": "Test@123!",
-	"password2": "Test@123!",
-}
-
-MOCK_USER = {
-	"id": "123e4567-e89b-12d3-a456-426614174000",
-	"email": TEST_USER_DATA["email"],
-	"full_name": TEST_USER_DATA["full_name"],
-	"created_at": "2025-08-08T00:00:00Z",
-	"updated_at": None,
-}
 
 
 @pytest.mark.asyncio
@@ -46,7 +32,7 @@ async def test_get_user_by_email_not_found():
 			"services.users.user_repository.get_entity_by_args"
 		) as patch_get_entity:
 			patch_get_entity.return_value = None
-			response = await get_user_by_email(db=db, email=TEST_USER_DATA["email"])
+			await get_user_by_email(db=db, email=TEST_USER_DATA["email"])
 	assert str(exc.value) == f"The user with email {TEST_USER_DATA['email']} not exist"
 
 

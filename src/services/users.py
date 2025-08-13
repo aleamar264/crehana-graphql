@@ -1,6 +1,6 @@
 from models.models import Users as UserModels
 from repository.repository import Repository
-from schema.schemas import UserResponse, UserSave, UserWithPassword
+from schema.schemas import UserWithPassword
 from utils.db.async_db_conf import depend_db_annotated
 from utils.exceptions import EntityDoesNotExistError
 

@@ -16,3 +16,10 @@ def repo():
 @pytest.fixture
 def db():
 	return AsyncMock(spec=AsyncSession)
+
+
+@pytest.fixture(scope="function")
+def strawberry_context():
+	info = AsyncMock()
+	info.context.db = db
+	yield info

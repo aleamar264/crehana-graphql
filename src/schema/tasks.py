@@ -47,6 +47,7 @@ class TasksResponse(Tasks):
 	model_config = ConfigDict(from_attributes=True)
 
 
+
 class ListTasksResponse(ListTask):
 	id: UUID = Field(..., description="Id of the tasks")
 	model_config = ConfigDict(from_attributes=True)
@@ -58,6 +59,11 @@ class GQL(BaseModel):
 
 class TasksGQL(Tasks, GQL): ...
 
+class ListTaskGQLCreation(GQL, UpdatedCreated):
+	tasks: list[TasksResponse] = Field(default=[])
+	name: str = Field(
+		pattern=r" [a-zA-Z0-9]", description="Name of the list", default=""
+	)
 
 class ListTaskGQL(ListTask, GQL): ...
 
