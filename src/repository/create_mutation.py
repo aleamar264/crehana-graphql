@@ -73,41 +73,17 @@ async def tasks_lists_mutation(tasks_list: ListTaskInput, info: Info) -> ListTas
 		ValidationError: If the input data does not conform to the expected schema.
 		Exception: For any database or repository errors during entity creation or refresh.
 	"""
-	# session = info.context.db
-	# entity = strawberry.asdict(tasks_list)
-	# converted_data = {key: convert_enum(value) for key, value in entity.items()}
-	# if converted_data["tasks"]:
-	# 	tasks = []
-	# 	for task in converted_data["tasks"]:
-	# 		tasks_ = await tasks_repository.get_entity_by_id(
-	# 			db=session, filter=(), entity_id=task
-	# 		)
-	# 		tasks.append(TasksResponse(**tasks_.__dict__))
-	# 	converted_data["tasks"] = tasks
-	# entity_schema = ListTaskGQLCreation(**converted_data)
-	# result = await tasks_list_repository.create_entity(
-	# 	db=session,
-	# 	entity_schema=entity_schema,
-	# )
-	# await session.refresh(result, attribute_names=["tasks"])
-	# tasks = [TaskGQLResponse.model_validate(t) for t in result.tasks]
-	# items_dict = result.__dict__
-	# items_dict["tasks"] = tasks
-
-	# return ListTaskType.from_pydantic(
-	# 	ListTaskGQLResponse.model_construct(**items_dict)
-	# )
 	session = info.context.db
 	entity = strawberry.asdict(tasks_list)
 	converted_data = {key: convert_enum(value) for key, value in entity.items()}
 	if converted_data["tasks"]:
-		tasks = await asyncio.gather(
-			*(
-				tasks_repository.get_entity_by_id(db=session, filter=(), entity_id=task)
-				for task in converted_data["tasks"]
+		tasks = []
+		for task in converted_data["tasks"]:
+			tasks_ = await tasks_repository.get_entity_by_id(
+				db=session, filter=(), entity_id=task
 			)
-		)
-		converted_data["tasks"] = [TasksResponse(**task_.__dict__) for task_ in tasks]
+			tasks.append(TasksResponse(**tasks_.__dict__))
+		converted_data["tasks"] = tasks
 	entity_schema = ListTaskGQLCreation(**converted_data)
 	result = await tasks_list_repository.create_entity(
 		db=session,
@@ -118,7 +94,9 @@ async def tasks_lists_mutation(tasks_list: ListTaskInput, info: Info) -> ListTas
 	items_dict = result.__dict__
 	items_dict["tasks"] = tasks
 
-	return ListTaskType.from_pydantic(ListTaskGQLResponse.model_construct(**items_dict))
+	return ListTaskType.from_pydantic(
+		ListTaskGQLResponse.model_construct(**items_dict)
+	)
 
 
 async def tasks_mutation(tasks: TasksInput, info: Info) -> TasksType:

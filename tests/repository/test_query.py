@@ -64,6 +64,23 @@ async def test_get_pagination_windows(db):
 	assert pagination.total_items == return_pagination.total_items
 	assert pagination.items[0].id == return_pagination.items[0].id
 
+@pytest.mark.asyncio
+async def test_get_pagination_windows_more_than_100(db):
+	info = MagicMock(spec=strawberry.Info)
+	info.context.db = db
+	mock_task_repository = AsyncMock()
+	with pytest.raises(Exception) as exc:
+		await get_pagination_windows(
+			order_by="asc",
+			limit=1000,
+			offset=0,
+			schema=TaskGQLResponse,  # type: ignore
+			model=mock_task_repository,
+			filter="",
+			model_db=Tasks,  # type: ignore
+			info=info,
+		)
+	assert str(exc.value) == "limit (1000) must be between 0-100"
 
 @pytest.mark.asyncio
 @patch("repository.query.get_count", return_value=1)
@@ -112,3 +129,21 @@ async def test_get_pagination_windows_task_list(db):
 
 	assert pagination.total_items == return_pagination.total_items
 	assert pagination.items[0].id == return_pagination.items[0].id
+
+@pytest.mark.asyncio
+async def test_get_pagination_windows_task_list_more_than_100(db):
+	info = MagicMock(spec=strawberry.Info)
+	info.context.db = db
+	mock_task_list_repository = AsyncMock()
+	with pytest.raises(Exception) as exc:
+		await get_pagination_windows_task_list(
+			order_by="asc",
+			limit=1000,
+			offset=0,
+			schema=TaskGQLResponse,  # type: ignore
+			model=mock_task_list_repository,
+			filter="",
+			model_db=Tasks,  # type: ignore
+			info=info,
+		)
+	assert str(exc.value) == "limit (1000) must be between 0-100"
