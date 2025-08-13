@@ -119,7 +119,7 @@ ignore = [
 
 # Allow fix for all enabled rules (when `--fix`) is provided.
 fixable = ["ALL"]
-
+extend-select= ["I"]
 
 [tool.ruff.format]
 docstring-code-format = true
@@ -229,8 +229,6 @@ options = "check --fix REVISION_SCRIPT_FILENAME"
 [tool.logfire]
 project_name = "crehana"
 console_color = "auto"
-# token = "pylf_v1_us_CX95mxtQKvJbwpcTp6q2LzlxW928lMdC1SQSk5PK5SJZ"
-
 
 [tool.ty.environment]
 python = ".venv"

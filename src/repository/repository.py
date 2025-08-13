@@ -57,7 +57,7 @@ class Repository(GeneralCrudAsync[T]):
 		offset: int,
 		order_by: Literal["asc", "desc"],
 		filter: tuple[Any],
-		**kwargs
+		**kwargs,
 	) -> tuple[Sequence[T], int]:
 		"""Function that retrieves and paginates the entities of a Model
 

@@ -100,6 +100,7 @@ class UserResponse(UserBase, UserAttributes):
 class UserWithPassword(UserResponse):
 	password_hash: str = Field(...)
 
+
 class Token(BaseModel):
 	access_token: str
 	token_type: str

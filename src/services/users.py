@@ -7,7 +7,9 @@ from utils.exceptions import EntityDoesNotExistError
 user_repository = Repository(model=UserModels)
 
 
-async def get_user_by_email(db: depend_db_annotated, email: str | int) -> UserWithPassword:
+async def get_user_by_email(
+	db: depend_db_annotated, email: str | int
+) -> UserWithPassword:
 	user: UserModels | None = await user_repository.get_entity_by_args(
 		entity_schema_value=email, column=UserModels.email, db=db
 	)

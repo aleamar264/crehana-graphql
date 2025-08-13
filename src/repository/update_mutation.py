@@ -6,6 +6,7 @@ import strawberry
 from sqlalchemy import select
 from strawberry.types import Info
 
+from common.send_email import send_email_for_task
 from models.models import TaskList, Tasks
 from schema.grapql_schemas import (
 	ListTasksUpdate,
@@ -14,10 +15,9 @@ from schema.grapql_schemas import (
 	TasksUpdateGQL,
 )
 from schema.tasks import ListTaskGQLResponse, TaskGQLResponse, TaskUpdates
+from services.users import user_repository
 
 from .tasks import tasks_list_repository, tasks_repository
-from common.send_email import send_email_for_task
-from services.users import user_repository
 
 
 def convert_enum(value: Any) -> Any:
@@ -38,7 +38,6 @@ async def update_task_in_task_list(
 		await session.commit()
 
 
-
 @strawberry.type
 class UpdateMutation:
 	"""Class that update the data from the employee using GraphQL"""
@@ -56,8 +55,12 @@ class UpdateMutation:
 			filter=(),  # type: ignore
 			entity_id=id,
 		)
-		if (_user:= converted_data.get("user")) is not None and _user != str(result.user):
-			user = await user_repository.get_entity_by_id(db=info.context.db, entity_id=str(converted_data["user"]))
+		if (_user := converted_data.get("user")) is not None and _user != str(
+			result.user
+		):
+			user = await user_repository.get_entity_by_id(
+				db=info.context.db, entity_id=str(converted_data["user"])
+			)
 			await send_email_for_task(user=str(user.email), task=result)
 		__tasks = TasksType.from_pydantic(TaskGQLResponse.model_validate(result))
 		return __tasks

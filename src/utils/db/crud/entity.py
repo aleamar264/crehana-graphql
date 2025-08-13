@@ -34,7 +34,7 @@ class GeneralCrudAsync[T](ABC):
 		offset: int,
 		order_by: Literal["asc", "desc"],
 		filter: tuple[Any],
-		**kwargs
+		**kwargs,
 	) -> tuple[Sequence[T], int]:
 		pass
 

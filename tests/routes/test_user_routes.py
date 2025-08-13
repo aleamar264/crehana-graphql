@@ -83,7 +83,6 @@ async def test_login_success():
 	app.dependency_overrides = {}
 
 
-
 @pytest.mark.asyncio
 async def test_login_failure():
 	"""Test login failure."""
@@ -96,10 +95,12 @@ async def test_login_failure():
 
 @pytest.mark.asyncio
 async def test_read_users_me():
-    """Test reading current user profile."""
-    mock_user = UserResponse(**MOCK_USER)
-    app.dependency_overrides[get_current_active_user] = lambda: mock_user
-    response = rest_client.get("/users/me", headers={"Authorization": "Bearer test_token"})
-    assert response.status_code == status.HTTP_200_OK
-    assert response.json()["email"] == MOCK_USER["email"]
-    app.dependency_overrides = {}
+	"""Test reading current user profile."""
+	mock_user = UserResponse(**MOCK_USER)
+	app.dependency_overrides[get_current_active_user] = lambda: mock_user
+	response = rest_client.get(
+		"/users/me", headers={"Authorization": "Bearer test_token"}
+	)
+	assert response.status_code == status.HTTP_200_OK
+	assert response.json()["email"] == MOCK_USER["email"]
+	app.dependency_overrides = {}

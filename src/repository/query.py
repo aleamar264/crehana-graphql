@@ -153,8 +153,12 @@ async def get_pagination_windows_task_list(
 	kwargs = {}
 	kwargs["join"] = lambda s: s.join(Tasks)
 	items, _ = await model.get_entity_pagination(
-		filter=filter_, db=session, limit=limit, offset=offset, order_by=order_by,
-		**kwargs
+		filter=filter_,
+		db=session,
+		limit=limit,
+		offset=offset,
+		order_by=order_by,
+		**kwargs,
 	)
 	tasks = []
 	new_items = []

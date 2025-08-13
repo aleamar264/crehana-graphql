@@ -101,4 +101,3 @@ async def read_users_me(
 		UserResponse: The current user's profile data.
 	"""
 	return current_user
-
