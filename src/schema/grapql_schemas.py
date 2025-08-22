@@ -90,8 +90,8 @@ class ListTasksUpdate(DateTime):
 
 @strawberry.experimental.pydantic.input(model=TaskUpdates)
 class TasksUpdateGQL:
-	status: StatusGQLEnum = strawberry.field(default=StatusGQLEnum.NEW)
-	priority: PriorityGQLEnum = strawberry.field(default=PriorityGQLEnum.LOW)
+	status: StatusGQLEnum | None = strawberry.field(default=StatusGQLEnum.NEW)
+	priority: PriorityGQLEnum | None = strawberry.field(default=PriorityGQLEnum.LOW)
 	user: UUID | None = None
 	title: str | None = None
 	description: str | None = None

@@ -1,165 +1,414 @@
-# """Test cases for GraphQL routes."""
-# import pytest
-# from strawberry.test import GraphQLClient
-# from typing import AsyncGenerator
+from datetime import UTC, datetime
+from unittest.mock import Mock, patch, AsyncMock
+from uuid import UUID
 
-# from routes.graphql_route import Query, Mutation
-# from schema.grapql_schemas import TasksType, ListTaskType
-# from utils.dependencies.graphql_fastapi import IsAuthenticated
+import pytest
+from mock_tasks import TASK_DATA_MOCK
+from sqlalchemy.ext.asyncio import AsyncSession
+from strawberry.fastapi import BaseContext
+from strawberry.schema import Schema
+from strawberry.schema.config import StrawberryConfig
 
-# @pytest.fixture
-# async def graphql_client() -> AsyncGenerator[GraphQLClient, None]:
-#     """Create a GraphQL client for testing."""
-#     schema =
-#     client = GraphQLClient(schema=schema)
-#     yield client
+from models.models import TaskList, Tasks, Users
+from routes.graphql_route import Mutation, Query
+from utils.fastapi.email.email_sender import fm
+from mock_user import MOCK_USER
+from mock_task_list import (
+	MOCK_TASK_LIST,
+	MOCK_TASK_LIST_WITH_TASKS,
+	MOCK_TASK_LIST_WITH_TASKS_ID,
+)
+from schema.tasks import Status, Priority
 
-# @pytest.mark.asyncio
-# async def test_query_tasks(graphql_client: GraphQLClient):
-#     """Test querying tasks."""
-#     query = """
-#     query {
-#         tasks(first: 10) {
-#             edges {
-#                 node {
-#                     id
-#                     title
-#                     status
-#                     priority
-#                 }
-#             }
-#         }
-#     }
-#     """
+schema = Schema(
+	query=Query,
+	mutation=Mutation,
+	config=StrawberryConfig(auto_camel_case=False),
+)
 
-#     # Mock authentication
-#     with patch('utils.dependencies.graphql_fastapi.IsAuthenticated.__call__') as mock_auth:
-#         mock_auth.return_value = True
 
-#         response = await graphql_client.query(query)
+class DbContext(BaseContext):
+	def __init__(self, db: AsyncSession):
+		self.db = db
+		# Await to retrieve the session instance, not the generator itself
 
-#         assert "errors" not in response
-#         assert "tasks" in response["data"]
 
-# @pytest.mark.asyncio
-# async def test_query_task_list(graphql_client: GraphQLClient):
-#     """Test querying task lists."""
-#     query = """
-#     query {
-#         taskList(first: 10) {
-#             edges {
-#                 node {
-#                     id
-#                     name
-#                     tasks {
-#                         id
-#                         title
-#                     }
-#                 }
-#             }
-#         }
-#     }
-#     """
+async def get_context(db: AsyncSession) -> DbContext:
+	"""This functions handle the dependency injection used by FastApi
 
-#     with patch('utils.dependencies.graphql_fastapi.IsAuthenticated.__call__') as mock_auth:
-#         mock_auth.return_value = True
+	Args:
+		db (AsyncSession, optional): Defaults to Depends(get_db_session).
 
-#         response = await graphql_client.query(query)
+	Returns:
+		DbContext: Custom context
+	"""
+	return DbContext(db)
 
-#         assert "errors" not in response
-#         assert "taskList" in response["data"]
 
-# @pytest.mark.asyncio
-# async def test_create_task_mutation(graphql_client: GraphQLClient):
-#     """Test creating a task."""
-#     mutation = """
-#     mutation {
-#         createMutations {
-#             createTask(input: {
-#                 title: "Test Task"
-#                 description: "Test Description"
-#                 status: NEW
-#                 priority: MEDIUM
-#             }) {
-#                 id
-#                 title
-#                 status
-#             }
-#         }
-#     }
-#     """
+# ######################## QUERY #################################
+# region Query
 
-#     with patch('utils.dependencies.graphql_fastapi.IsAuthenticated.__call__') as mock_auth:
-#         mock_auth.return_value = True
 
-#         response = await graphql_client.query(mutation)
+@pytest.mark.asyncio
+async def test_query_route_tasks_fail():
+	query = """
+    query MyQuery {
+    tasks(limit: 10) {
+        items {
+        id
+        priority
+        status
+        }
+    }
+    }
+    """
+	result = await schema.execute(query=query)
+	assert result.data is None
+	assert result.errors[0].message == "An error occurred during authentication."
 
-#         assert "errors" not in response
-#         assert "createMutations" in response["data"]
 
-# @pytest.mark.asyncio
-# async def test_update_task_mutation(graphql_client: GraphQLClient):
-#     """Test updating a task."""
-#     mutation = """
-#     mutation {
-#         upadateMutation {
-#             updateTask(id: "test-id", input: {
-#                 title: "Updated Task"
-#                 status: ACTIVE
-#             }) {
-#                 id
-#                 title
-#                 status
-#             }
-#         }
-#     }
-#     """
+@pytest.mark.asyncio
+@patch("routes.graphql_route.IsAuthenticated.has_permission", return_value=True)
+async def test_query_route_tasks_success(mock_auth, db: AsyncMock):
+	query = """
+    query MyQuery {
+    tasks(limit: 10) {
+    items {
+        id
+        priority
+        status
+    }
+    total_items
+    }
+    }
+    """
+	mock_result = Mock()
+	mock_result.scalars.return_value.all.side_effect = [
+		[Tasks(**task) for task in TASK_DATA_MOCK],
+		[2],
+	]
+	db.execute.return_value = mock_result
 
-#     with patch('utils.dependencies.graphql_fastapi.IsAuthenticated.__call__') as mock_auth:
-#         mock_auth.return_value = True
+	result = await schema.execute(query=query, context_value=await get_context(db))
+	assert result.data["tasks"]["items"][0]["priority"] == "CRITICAL"
+	assert result.data["tasks"]["total_items"] == 2
 
-#         response = await graphql_client.query(mutation)
 
-#         assert "errors" not in response
-#         assert "upadateMutation" in response["data"]
+@pytest.mark.asyncio
+@patch("routes.graphql_route.IsAuthenticated.has_permission", return_value=True)
+async def test_query_route_list_tasks_without_tasks(mock_auth, db: AsyncMock):
+	query = """
+    query MyQuery {
+    task_list(limit: 10) {
+        items {
+        created_at
+        id
+        }
+        total_items
+    }
+    }
+    """
+	mock_result = Mock()
+	mock_result.scalars.return_value.all.side_effect = [
+		[
+			TaskList(
+				tasks=[],
+				id="0f115d4b-9fe3-4cfd-8339-7e5e49597167",
+				name="List Test",
+				created_at=datetime.now(UTC),
+				updated_at=None,
+			)
+		],
+		[1],
+	]
+	db.execute.return_value = mock_result
 
-# @pytest.mark.asyncio
-# async def test_delete_task_mutation(graphql_client: GraphQLClient):
-#     """Test deleting a task."""
-#     mutation = """
-#     mutation {
-#         deleteMutations {
-#             deleteTask(id: "test-id")
-#         }
-#     }
-#     """
+	result = await schema.execute(query=query, context_value=await get_context(db))
+	assert (
+		result.data["task_list"]["items"][0]["id"]
+		== "0f115d4b-9fe3-4cfd-8339-7e5e49597167"
+	)
+	assert result.data["task_list"]["total_items"] == 1
 
-#     with patch('utils.dependencies.graphql_fastapi.IsAuthenticated.__call__') as mock_auth:
-#         mock_auth.return_value = True
 
-#         response = await graphql_client.query(mutation)
+@pytest.mark.asyncio
+@patch("routes.graphql_route.IsAuthenticated.has_permission", return_value=True)
+async def test_query_route_list_tasks_with_tasks(mock_auth, db: AsyncMock):
+	query = """
+query MyQuery {
+  task_list(limit: 10) {
+    items {
+      created_at
+      id
+      tasks {
+        title
+        status
+      }
+    }
+    total_items
+  }
+}
+    """
+	mock_result = Mock()
+	mock_result.scalars.return_value.all.side_effect = [
+		[
+			TaskList(
+				tasks=[Tasks(**task) for task in TASK_DATA_MOCK],
+				id="0f115d4b-9fe3-4cfd-8339-7e5e49597167",
+				name="List Test",
+				created_at=datetime.now(UTC),
+				updated_at=None,
+			)
+		],
+		[1],
+	]
+	db.execute.return_value = mock_result
+	db.refresh.side_effect = [Tasks(**task) for task in TASK_DATA_MOCK]
+	result = await schema.execute(query=query, context_value=await get_context(db))
+	assert (
+		result.data["task_list"]["items"][0]["id"]
+		== "0f115d4b-9fe3-4cfd-8339-7e5e49597167"
+	)
+	assert result.data["task_list"]["total_items"] == 1
+	assert (
+		result.data["task_list"]["items"][0]["tasks"][0]["title"]
+		== TASK_DATA_MOCK[0]["title"]
+	)
 
-#         assert "errors" not in response
-#         assert "deleteMutations" in response["data"]
 
-# @pytest.mark.asyncio
-# async def test_unauthorized_query(graphql_client: GraphQLClient):
-#     """Test unauthorized access."""
-#     query = """
-#     query {
-#         tasks(first: 10) {
-#             edges {
-#                 node {
-#                     id
-#                 }
-#             }
-#         }
-#     }
-#     """
+# ######################## MUTATIONS #################################
+# ######################## CREATE #################################
+# region Create
 
-#     with patch('utils.dependencies.graphql_fastapi.IsAuthenticated.__call__') as mock_auth:
-#         mock_auth.return_value = False
 
-#         response = await graphql_client.query(query)
+@pytest.mark.asyncio
+@patch("routes.graphql_route.IsAuthenticated.has_permission", return_value=True)
+@patch("repository.create_mutation.tasks_repository.create_entity")
+async def test_mutation_route_create_task(mock_create_entity, mock_auth, db: AsyncMock):
+	query = """
+    mutation MyMutation {
+    create_mutations {
+    create_tasks(
+        tasks: {status: NEW,
+        priority: CRITICAL,
+        title: "Test Task",
+        description: "Some test description", }
+    ) {
+        status
+        priority
+        id
+        title
+    }
+    }
+    }"""
 
-#         assert "errors" in response
+	fake_task = Tasks(**TASK_DATA_MOCK[0])
+	mock_create_entity.return_value = fake_task
+	result = await schema.execute(query=query, context_value=await get_context(db))
+	assert not result.errors, result.errors
+
+
+@pytest.mark.asyncio
+@patch("routes.graphql_route.IsAuthenticated.has_permission", return_value=True)
+@patch("repository.create_mutation.tasks_repository.create_entity")
+@patch("repository.create_mutation.user_repository.get_entity_by_id")
+async def test_mutation_route_create_task_user(
+	mock_get_user, mock_create_entity, mock_auth, db: AsyncMock
+):
+	query = """
+	mutation MyMutation{
+	create_mutations {
+	create_tasks(
+		tasks: {status: NEW,
+		priority: CRITICAL,
+		title: "Test Task",
+		description: "Some test description",
+		user: "123e4567-e89b-12d3-a456-426614174000" }
+	) {
+		status
+		priority
+		id
+		title
+	}
+	}
+	}"""
+
+	fake_task = Tasks(**TASK_DATA_MOCK[0])
+	mock_create_entity.return_value = fake_task
+	mock_get_user.return_value = Users(**MOCK_USER)
+	fm.config.SUPPRESS_SEND = 1
+	result = await schema.execute(
+		query=query,
+		context_value=await get_context(db),
+	)
+	assert not result.errors, result.errors
+	assert mock_get_user.called
+	assert mock_create_entity.called
+
+
+@pytest.mark.asyncio
+@patch("routes.graphql_route.IsAuthenticated.has_permission", return_value=True)
+@patch("repository.create_mutation.tasks_list_repository.create_entity")
+async def test_mutation_route_create_list_task(
+	mock_create_entity, mock_auth, db: AsyncMock
+):
+	query = """
+	mutation MyMutation {
+  create_mutations {
+    create_tasks_lists(tasks_list: {name: "Test list", tasks: []}) {
+      id
+      name
+    }
+  }
+}"""
+
+	fake_task = TaskList(**MOCK_TASK_LIST)
+	mock_create_entity.return_value = fake_task
+	result = await schema.execute(
+		query=query,
+		context_value=await get_context(db),
+	)
+	assert not result.errors, result.errors
+	assert result.data["create_mutations"]["create_tasks_lists"]["name"] == "Test list"
+	assert mock_create_entity.called
+
+
+# ######################## MUTATIONS #################################
+# ######################## Update #################################
+# region Update
+
+
+@pytest.mark.asyncio
+@patch("routes.graphql_route.IsAuthenticated.has_permission", return_value=True)
+@patch("repository.update_mutation.tasks_repository.update_entity")
+async def test_mutation_route_update_task(mock_update_entity, mock_auth, db: AsyncMock):
+	query = """
+	mutation MyMutation {
+  upadate_mutation {
+    update_tasks_mutation(id: "6aa51c81-b757-4baa-928a-afa23b97e7a5",
+	tasks: {
+	status: NEW,
+	priority: CRITICAL}) {
+      priority
+      status
+    }
+  }
+}"""
+
+	fake_task = Tasks(**TASK_DATA_MOCK[0])
+	mock_update_entity.return_value = fake_task
+	result = await schema.execute(
+		query=query,
+		context_value=await get_context(db),
+	)
+	assert not result.errors, result.errors
+	assert mock_update_entity.called
+
+
+@pytest.mark.asyncio
+@patch("routes.graphql_route.IsAuthenticated.has_permission", return_value=True)
+@patch("repository.update_mutation.tasks_repository.update_entity")
+@patch("repository.update_mutation.tasks_repository.get_entity_by_id")
+@patch("repository.update_mutation.user_repository.get_entity_by_id")
+async def test_mutation_route_update_tasks_with_user(
+	mock_get_entity, mock_get_task_entity, mock_update_entity, mock_auth, db: AsyncMock
+):
+	query = """
+	mutation MyMutation {
+  upadate_mutation {
+    update_tasks_mutation(id: "6aa51c81-b757-4baa-928a-afa23b97e7a5",
+	tasks: {
+	status: NEW,
+	priority: CRITICAL,
+	user: "eca3933f-b9b8-4a18-b32f-4be052ce58ef"}) {
+      priority
+      status
+    }
+  }
+}"""
+	mock_get_task_entity.return_value = Tasks(**TASK_DATA_MOCK[0])
+	update_tasks = TASK_DATA_MOCK[0].copy()
+	update_tasks["user"] = UUID("eca3933f-b9b8-4a18-b32f-4be052ce58ef")
+	mock_get_entity.return_value = Users(**MOCK_USER)
+	fm.config.SUPPRESS_SEND = 1
+	fake_task = Tasks(**update_tasks)
+	mock_update_entity.return_value = fake_task
+	result = await schema.execute(
+		query=query,
+		context_value=await get_context(db),
+	)
+	assert not result.errors, result.errors
+	assert mock_update_entity.called
+
+
+@pytest.mark.asyncio
+@patch("routes.graphql_route.IsAuthenticated.has_permission", return_value=True)
+@patch("repository.update_mutation.tasks_list_repository.update_entity")
+async def test_mutation_route_update_task_list(
+	mock_update_entity, mock_auth, db: AsyncMock
+):
+	query = """
+	mutation MyMutation {
+  upadate_mutation {
+    list_tasks_update(
+	id: "fbaa20cf-91aa-49db-bae9-105bc052421c",
+	list_tasks: {name: "Update test"}) {
+      id
+      name
+    }
+  }
+}
+"""
+
+	update_tasks = MOCK_TASK_LIST.copy()
+	update_tasks["name"] = "Update test"
+	fake_task = TaskList(**update_tasks)
+	mock_update_entity.return_value = fake_task
+	result = await schema.execute(
+		query=query,
+		context_value=await get_context(db),
+	)
+	assert not result.errors, result.errors
+	assert mock_update_entity.called
+
+
+@pytest.mark.asyncio
+@patch("routes.graphql_route.IsAuthenticated.has_permission", return_value=True)
+@patch("repository.update_mutation.tasks_list_repository.update_entity")
+@patch("repository.update_mutation.update_task_in_task_list", return_value=None)
+async def test_mutation_route_update_task_list_tasks(
+	mock_update_tasks, mock_update_entity, mock_auth, db: AsyncMock
+):
+	query = """
+	mutation MyMutation {
+	upadate_mutation {
+	list_tasks_update(
+	id: "fbaa20cf-91aa-49db-bae9-105bc052421c",
+
+	list_tasks: {name: "Update test",
+	tasks: ["6aa51c81-b757-4baa-928a-afa23b97e7a5"]}) {
+		id
+		name
+		tasks {
+		id
+			}
+		}
+	}
+}
+"""
+
+	update_tasks = MOCK_TASK_LIST_WITH_TASKS.copy()
+	update_tasks["name"] = "Update test"
+	fake_task = TaskList(**update_tasks)
+	mock_update_entity.return_value = fake_task
+	result = await schema.execute(
+		query=query,
+		context_value=await get_context(db),
+	)
+	assert not result.errors, result.errors
+	assert mock_update_entity.called
+
+
+# ######################## MUTATIONS #################################
+# ######################## Delete #################################
+# region Delete

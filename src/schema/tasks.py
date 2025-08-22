@@ -77,8 +77,8 @@ class ListTaskGQLResponse(ListTaskGQL):
 
 
 class TaskUpdates(BaseModel):
-	status: Status = Field(Status.NEW, description="Status of one task")
-	priority: Priority = Field(Priority.LOW, description="Priority for a task")
+	status: Status | None = Field(Status.NEW, description="Status of one task")
+	priority: Priority | None = Field(Priority.LOW, description="Priority for a task")
 	user: UUID | None = Field(None, description="User in charge of the task")
 	title: str | None = None
 	description: str | None = None

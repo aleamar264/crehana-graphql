@@ -1,19 +1,24 @@
-import pytest
+from enum import Enum
 from unittest.mock import AsyncMock, patch
 
+import pytest
+from mock_tasks import TASK_DATA_MOCK
+from mock_user import MOCK_USER
+
+from models.models import TaskList, Tasks, Users
 from repository.create_mutation import (
 	convert_enum,
 	get_other_entity,
 	tasks_lists_mutation,
 	tasks_mutation,
 )
-from models.models import Tasks, Users, TaskList
-from mock_tasks import TASK_DATA_MOCK
-from mock_user import MOCK_USER
 from schema.grapql_schemas import ListTaskInput, TasksInput
-from tests.mock_task_list import MOCK_TASK_LIST, MOCK_TASK_LIST_WITH_TASKS, MOCK_TASK_LIST_WITH_TASKS_ID
+from tests.mock_task_list import (
+	MOCK_TASK_LIST,
+	MOCK_TASK_LIST_WITH_TASKS,
+	MOCK_TASK_LIST_WITH_TASKS_ID,
+)
 from utils.exceptions import EntityAlreadyExistsError
-from enum import Enum
 
 
 @pytest.mark.asyncio
@@ -107,13 +112,12 @@ async def test_list_tasks_task_none(db: AsyncMock, strawberry_context: AsyncMock
 	"repository.create_mutation.tasks_repository.get_entity_by_id",
 	return_value=Tasks(**TASK_DATA_MOCK[1]),
 )
-async def test_list_tasks(db: AsyncMock, strawberry_context: AsyncMock):
+async def test_list_tasks(mock_get_entity,mock_create_entity, db: AsyncMock, strawberry_context: AsyncMock):
 	list_task = MOCK_TASK_LIST_WITH_TASKS_ID.copy()
 	del  list_task["id"]
 	refresh = AsyncMock()
 	refresh.return_value = Tasks(**TASK_DATA_MOCK[1])
-	new_db = db.refresh.return_value = refresh
-	strawberry_context.context.db = new_db
+	db.refresh.return_value = refresh
 	result = await tasks_lists_mutation(
 		tasks_list=ListTaskInput(**list_task), info=strawberry_context
 	)

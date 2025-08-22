@@ -11,7 +11,7 @@ from schema.tasks import Priority, Status
 async def test_send_email_task():
 	"""Test send email"""
 	fm.config.SUPPRESS_SEND = 1
-	with fm.record_messages() as outbox:
+	with fm.record_messages():
 		await send_email_for_task(
 			user="user@example.com",
 			task=Tasks(
