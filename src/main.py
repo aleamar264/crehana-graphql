@@ -30,8 +30,6 @@ graphql_app = GraphQLRouter(
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    metrics = PrometheusMetrics(app_name="crehana-api")
-    instrumentator = metrics.init_instrumentation()
     instrumentator.expose(app=app, endpoint="/metrics")
     yield
 
@@ -49,8 +47,8 @@ app = FastAPI(
 )
 
 origin = ["*"]
-# instrumentator = PrometheusMetrics(app_name="crehana").init_instrumentation()
-# instrumentator.instrument(app)
+metrics = PrometheusMetrics(app_name="crehana")
+instrumentator = metrics.init_instrumentation(app=app)
 
 app.add_middleware(
 	CORSMiddleware,

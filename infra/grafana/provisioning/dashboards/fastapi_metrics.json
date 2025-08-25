@@ -752,10 +752,7 @@
         "type": "datasource"
       },
       {
-        "current": {
-          "text": "app-a",
-          "value": "app-a"
-        },
+        "current": {},
         "datasource": {
           "type": "prometheus",
           "uid": "${DS_PROMETHEUS}"

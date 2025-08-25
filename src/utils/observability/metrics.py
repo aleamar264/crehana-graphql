@@ -1,6 +1,6 @@
 from collections.abc import Callable
 
-from fastapi import Request
+from fastapi import FastAPI, Request
 from prometheus_client import Counter, Gauge
 from prometheus_fastapi_instrumentator import Instrumentator, metrics
 from prometheus_fastapi_instrumentator.metrics import Info
@@ -45,7 +45,7 @@ class PrometheusMetrics(BaseModel):
 
         return request.url.path, False
 
-    def init_instrumentation(self):
+    def init_instrumentation(self, app: FastAPI):
 
         instrumentator = Instrumentator(
             should_instrument_requests_inprogress=True,
@@ -82,6 +82,6 @@ class PrometheusMetrics(BaseModel):
             )
         ).add(self.fastapi_responses_total())
 
-        return instrumentator
+        return instrumentator.instrument(app=app)
 
 
