@@ -17,28 +17,33 @@ A FastAPI-based task management system with user authentication and task organiz
 - User task assignment
 - Email notification simulation (mock implementation)
 
+### UI for Observability
+- Grafana for Dashboards
+- Prometheus for metrics
+
+
 ## Project Structure
 
-### Models (`/models`)
+### Models
 - `Tasks`: Task entity with fields for status, priority, user assignment, and timestamps
 - `TaskList`: Collection of tasks with name and timestamp fields
 - `Users`: User entity with authentication and profile information
 
-### Repository (`/repository`)
+### Repository
 The repository layer implements CRUD operations with the following features:
 - Generic repository pattern implementation
 - Async database operations
 - Pagination support
 - Flexible filtering system
 
-### Schema (`/schema`)
+### Schema
 - `UserBase`: Base user attributes
 - `UserCreation`: Schema for user registration
 - `UserResponse`: Schema for API responses
 - `Token`: JWT token schema
 - Custom password validation with security requirements
 
-### Services (`/services`)
+### Services
 - User authentication service
 - Email-based user lookup
 - Password verification
@@ -178,3 +183,12 @@ From the route, where the `alembic.ini` exist alongside the `pyproject.toml`, yo
 
 ### Run test
 To run the test, you only need to run `uv run pytest`, this will take the configuration from `pyproject.toml`.
+
+### Observability
+To enter to the UI designed for observability (Metrics) given by `Prometheus` you need to navigate to http://localhost:9000/grafana.
+
+The info about the authentication can be found or modify here `infra/grafana/config.monitoring`, but if you wanna only enter the user is: `admin` and password: `foobar`.
+
+Here you will find several dashaboads like a dashborad for fastapi application request, docker process and resources, etc ...
+
+Also, if you want to look the metrics, o make some operation with the metrics, you can go to http://localhost:9000/prom, this route is not protected. But look for the specific metrics you can go to http://localhost:9000/api/v1/metrics, this are the specific metrics for fastapi.

@@ -31,7 +31,7 @@ async def update_task_in_task_list(
 	tasks_ids: list[Annotated[str, UUID]], id: Annotated[str, UUID], info: Info
 ) -> None:
 	async with info.context.db as session:
-		tasks: Sequence[Tasks] = await session.execute(
+		tasks = await session.execute(
 			select(Tasks).where(Tasks.id.in_(tasks_ids))
 		)
 		tasks: list[Tasks] = list(tasks.scalars())

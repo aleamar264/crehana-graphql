@@ -50,8 +50,8 @@ scrape_configs:
     static_configs:
       - targets: ['traefik:8082']
 
-  # - job_name: 'crehana'
-  #   scrape_interval: 15s
-  #   metrics_path: /api/v1/metrics
-  #   static_configs:
-  #     - targets: ['crehana:8000']
+  - job_name: 'crehana'
+    scrape_interval: 15s
+    metrics_path: /api/v1/metrics
+    static_configs:
+      - targets: ['crehana:8000']

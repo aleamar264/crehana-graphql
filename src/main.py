@@ -1,3 +1,5 @@
+from contextlib import asynccontextmanager
+
 import strawberry
 from fastapi import FastAPI, status
 from fastapi.middleware.cors import CORSMiddleware
@@ -10,6 +12,7 @@ from routes.graphql_route import Mutation, Query
 from routes.user import router
 from schema.schemas import HealthCheck
 from utils.dependencies.graphql_fastapi import get_context
+from utils.observability.metrics import PrometheusMetrics
 
 schema = strawberry.Schema(
 	query=Query,
@@ -24,6 +27,15 @@ graphql_app = GraphQLRouter(
 	context_getter=get_context,
 )
 
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    metrics = PrometheusMetrics(app_name="crehana-api")
+    instrumentator = metrics.init_instrumentation()
+    instrumentator.expose(app=app, endpoint="/metrics")
+    yield
+
+
 # Create app
 app = FastAPI(
 	openapi_url="/openapi.json",
@@ -33,10 +45,12 @@ app = FastAPI(
 	title="Crehana Prueba tecnica",
 	description="FastAPI application with GraphQL endpoints",
 	version="1.0.0",
+	lifespan=lifespan,
 )
 
 origin = ["*"]
-
+# instrumentator = PrometheusMetrics(app_name="crehana").init_instrumentation()
+# instrumentator.instrument(app)
 
 app.add_middleware(
 	CORSMiddleware,
