@@ -12,7 +12,7 @@ from routes.graphql_route import Mutation, Query
 from routes.user import router
 from schema.schemas import HealthCheck
 from utils.dependencies.graphql_fastapi import get_context
-from utils.observability.metrics import PrometheusMetrics
+from utils.fastapi.observability.metrics import PrometheusMetrics
 
 schema = strawberry.Schema(
 	query=Query,

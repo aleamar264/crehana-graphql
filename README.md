@@ -192,3 +192,5 @@ The info about the authentication can be found or modify here `infra/grafana/con
 Here you will find several dashaboads like a dashborad for fastapi application request, docker process and resources, etc ...
 
 Also, if you want to look the metrics, o make some operation with the metrics, you can go to http://localhost:9000/prom, this route is not protected. But look for the specific metrics you can go to http://localhost:9000/api/v1/metrics, this are the specific metrics for fastapi.
+
+

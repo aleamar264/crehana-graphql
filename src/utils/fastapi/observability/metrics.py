@@ -1,3 +1,6 @@
+"""The metrics and dashboards are inspired in the repository from
+https://github.com/blueswen/fastapi-observability/blob/main/fastapi_app/utils.py"""
+
 from collections.abc import Callable
 
 from fastapi import FastAPI, Request
